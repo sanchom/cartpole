@@ -27,62 +27,65 @@ class QLearnerAgent(object):
       elif val > high:
         discrete[i] = self.state_bins[i] + 1
       else:
-        relative_val = (val - low) / (high - low)
+        relative_val = (val - low)
         bin_size = (high - low) / self.state_bins[i]
-        b = int(relative_val / bin_size) + 1
+        b = int(round(relative_val / bin_size)) + 1
         discrete[i] = b
-
+    #print('Bounds: {}'.format(self.state_bounds))
+    #print('Observation: {}'.format(observation))
+    #print('Bins: {}'.format(discrete))
     return tuple(discrete)
 
-  def get_action(self, observation, explore_rate):
-    discrete_observation = self._discretize_observation(observation)
-    if discrete_observation in self.q:
+  def get_action(self, state, explore_rate):
+    if state in self.q:
       if np.random.rand() < explore_rate:
         # Occasionally, just move randomly.
         return np.random.choice(self.action_space)
       else:
         # Most of the time, choose the till-now best guess about the
         # optimal action.
-        return np.argmax(self.q[discrete_observation])
+        return np.argmax(self.q[state])
     else:
       # We haven't seen this state before. Just pick randomly.
       return np.random.choice(self.action_space)
 
-  def learn(self, observation, action, reward, new_observation):
-    discrete_observation = self._discretize_observation(observation)
-    discrete_new_observation = self._discretize_observation(new_observation)
-    if discrete_observation in self.q:
-      old_q = self.q[discrete_observation][action]
-    else:
-      old_q = 0
-    if discrete_new_observation in self.q:
-      now_q = self.q[discrete_new_observation]
-    else:
-      now_q = np.zeros_like(self.action_space, np.float32)
-    
-    learning_rate = 1
+  def learn(self, starting_state, action, reward, state, learning_rate):
+    try:
+      best_q_forward = np.max(self.q[state])
+    except KeyError:
+      best_q_forward = 0.0
+
     discount_factor = 0.99
-    new_q = old_q + learning_rate * (reward + discount_factor * np.max(now_q) - old_q)
-    if discrete_observation in self.q:
-      self.q[discrete_observation][action] = new_q
-    else:
-      self.q[discrete_observation] = np.zeros_like(self.action_space, np.float32)
-      self.q[discrete_observation][action] = new_q
+    try:
+      original_q = self.q[starting_state][action]
+    except KeyError:
+      original_q = 0.0
+
+    new_q = original_q + learning_rate * (reward + discount_factor * best_q_forward - original_q)
+    try:
+      self.q[starting_state][action] = new_q
+    except KeyError:
+      self.q[starting_state] = np.zeros_like(self.action_space, np.float32)
+      self.q[starting_state][action] = new_q
 
 def main(_):
   env = gym.make('CartPole-v0')
   agent = QLearnerAgent(env)
-  explore_rate = 0.2
-  for episode in xrange(20000):
-    explore_rate *= 0.99
+  for episode in xrange(3000):
     observation = env.reset()
-    #env.render()
+    state = agent._discretize_observation(observation)
+    learning_rate = max(0.1, min(0.5, 1.0 - math.log10((episode + 1)/25)))
+    explore_rate = max(0.01, min(1, 1.0 - math.log10((episode + 1)/25)))
+    if episode > 2000:
+      env.render()
     for i in xrange(1000):
-      action = agent.get_action(observation, explore_rate)
-      new_observation, reward, done, _ = env.step(action)
-      agent.learn(observation, action, reward, new_observation)
-      observation = new_observation
-      #env.render()
+      action = agent.get_action(state, explore_rate)
+      observation, reward, done, _ = env.step(action)
+      new_state = agent._discretize_observation(observation)
+      agent.learn(state, action, reward, new_state, learning_rate)
+      state = new_state
+      if episode > 2000:
+        env.render()
       if done:
         print('Episode {} finished after {} steps.'.format(episode + 1, i + 1))
         break
