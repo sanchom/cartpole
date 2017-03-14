@@ -7,7 +7,6 @@ from six.moves import xrange
 import gym
 import math
 import numpy as np
-import tensorflow as tf
 
 # State-space taken from Matthew Chan
 # (https://medium.com/@tuzzer/cart-pole-balancing-with-q-learning-b54c6068d947)
@@ -71,7 +70,7 @@ class QLearnerAgent(object):
       self.q[starting_state] = np.zeros_like(self.action_space, np.float32)
       self.q[starting_state][action] = new_q
 
-def main(_):
+def main():
   env = gym.make('CartPole-v0')
   agent = QLearnerAgent(env)
   for episode in xrange(1000):
@@ -95,4 +94,4 @@ def main(_):
         break
 
 if __name__ == '__main__':
-  tf.app.run()
+  main()
