@@ -5,6 +5,7 @@ from __future__ import print_function
 from six.moves import xrange
 
 import gym
+from gym import wrappers
 import math
 import numpy as np
 
@@ -72,6 +73,7 @@ class QLearnerAgent(object):
 
 def main():
   env = gym.make('CartPole-v0')
+  env = wrappers.Monitor(env, '/tmp/cartpole_exeperiment')
   agent = QLearnerAgent(env)
   for episode in xrange(1000):
     observation = env.reset()
