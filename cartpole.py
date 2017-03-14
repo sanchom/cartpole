@@ -73,7 +73,7 @@ class QLearnerAgent(object):
 
 def main():
   env = gym.make('CartPole-v0')
-  env = wrappers.Monitor(env, '/tmp/cartpole_exeperiment')
+  env = wrappers.Monitor(env, '/tmp/cartpole_experiment')
   agent = QLearnerAgent(env)
   for episode in xrange(1000):
     observation = env.reset()
