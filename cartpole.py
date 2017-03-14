@@ -9,12 +9,18 @@ import math
 import numpy as np
 import tensorflow as tf
 
+# State-space taken from Matthew Chan
+# (https://medium.com/@tuzzer/cart-pole-balancing-with-q-learning-b54c6068d947)
 class QLearnerAgent(object):
   def __init__(self, env):
     self.q = {}
-    self.action_space = [0, 1]
+    self.action_space = range(env.action_space.n)
     self.state_bounds = list(zip(env.observation_space.low, env.observation_space.high))
+    # The bounds for this dimension (x_dot) are too broad (basically
+    # the entire range of float32). Let's only consider a small
+    # portion of the range.
     self.state_bounds[1] = [-0.5, 0.5]
+    # Similarly with the theta_dot range.
     self.state_bounds[3] = [-math.radians(50), math.radians(50)]
     self.state_bins = [1, 1, 6, 3]
 
@@ -29,11 +35,8 @@ class QLearnerAgent(object):
       else:
         relative_val = (val - low)
         bin_size = (high - low) / self.state_bins[i]
-        b = int(round(relative_val / bin_size)) + 1
-        discrete[i] = b
-    #print('Bounds: {}'.format(self.state_bounds))
-    #print('Observation: {}'.format(observation))
-    #print('Bins: {}'.format(discrete))
+        b = int(relative_val / bin_size)
+        discrete[i] = b + 1
     return tuple(discrete)
 
   def get_action(self, state, explore_rate):
@@ -71,21 +74,22 @@ class QLearnerAgent(object):
 def main(_):
   env = gym.make('CartPole-v0')
   agent = QLearnerAgent(env)
-  for episode in xrange(3000):
+  for episode in xrange(1000):
     observation = env.reset()
     state = agent._discretize_observation(observation)
+    # Learning rate decay and exploration rate decay taken from
+    # Matthew Chan
+    # (https://medium.com/@tuzzer/cart-pole-balancing-with-q-learning-b54c6068d947)
     learning_rate = max(0.1, min(0.5, 1.0 - math.log10((episode + 1)/25)))
     explore_rate = max(0.01, min(1, 1.0 - math.log10((episode + 1)/25)))
-    if episode > 2000:
-      env.render()
+    env.render()
     for i in xrange(1000):
       action = agent.get_action(state, explore_rate)
       observation, reward, done, _ = env.step(action)
       new_state = agent._discretize_observation(observation)
       agent.learn(state, action, reward, new_state, learning_rate)
       state = new_state
-      if episode > 2000:
-        env.render()
+      env.render()
       if done:
         print('Episode {} finished after {} steps.'.format(episode + 1, i + 1))
         break
