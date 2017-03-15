@@ -4,27 +4,26 @@ from __future__ import print_function
 
 from six.moves import xrange
 
-import gym
-from gym import wrappers
 import math
 import numpy as np
 
+import gym
+from gym import wrappers
+
 # State-space taken from Matthew Chan
 # (https://medium.com/@tuzzer/cart-pole-balancing-with-q-learning-b54c6068d947)
-class QLearnerAgent(object):
+class StateBinner(object):
   def __init__(self, env):
-    self.q = {}
-    self.action_space = range(env.action_space.n)
     self.state_bounds = list(zip(env.observation_space.low, env.observation_space.high))
     # The bounds for this dimension (x_dot) are too broad (basically
     # the entire range of float32). Let's only consider a small
-    # portion of the range.
+    # portion of the range to be relevant.
     self.state_bounds[1] = [-0.5, 0.5]
     # Similarly with the theta_dot range.
-    self.state_bounds[3] = [-math.radians(50), math.radians(50)]
-    self.state_bins = [1, 1, 6, 3]
+    self.state_bounds[3] = [-math.radians(15), math.radians(15)]
+    self.state_bins = [1, 1, 6, 2]
 
-  def _discretize_observation(self, observation):
+  def discretize(self, observation):
     discrete = [0, 0, 0, 0]
     for i, val in enumerate(observation):
       low, high = self.state_bounds[i]
@@ -38,6 +37,11 @@ class QLearnerAgent(object):
         b = int(relative_val / bin_size)
         discrete[i] = b + 1
     return tuple(discrete)
+
+class QLearnerAgent(object):
+  def __init__(self, env):
+    self.q = {}
+    self.action_space = range(env.action_space.n)
 
   def get_action(self, state, explore_rate):
     if state in self.q:
@@ -73,21 +77,22 @@ class QLearnerAgent(object):
 
 def main():
   env = gym.make('CartPole-v0')
-  env = wrappers.Monitor(env, '/tmp/cartpole_experiment')
+  #env = wrappers.Monitor(env, '/tmp/cartpole_experiment')
   agent = QLearnerAgent(env)
+  binner = StateBinner(env)
   for episode in xrange(1000):
     observation = env.reset()
-    state = agent._discretize_observation(observation)
+    state = binner.discretize(observation)
     # Learning rate decay and exploration rate decay taken from
     # Matthew Chan
     # (https://medium.com/@tuzzer/cart-pole-balancing-with-q-learning-b54c6068d947)
-    learning_rate = max(0.1, min(0.5, 1.0 - math.log10((episode + 1)/25)))
-    explore_rate = max(0.01, min(1, 1.0 - math.log10((episode + 1)/25)))
+    learning_rate = max(0.1, min(0.5, 1.0 - math.log10((episode + 1) / 25)))
+    explore_rate = max(0.01, min(1, 1.0 - math.log10((episode + 1) / 25)))
     env.render()
     for i in xrange(1000):
       action = agent.get_action(state, explore_rate)
       observation, reward, done, _ = env.step(action)
-      new_state = agent._discretize_observation(observation)
+      new_state = binner.discretize(observation)
       agent.learn(state, action, reward, new_state, learning_rate)
       state = new_state
       env.render()
