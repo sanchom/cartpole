@@ -15,7 +15,7 @@ import gym
 from gym import wrappers
 
 from q_learner import QLearner
-from states import StateBinner
+from states import BinnerFactory
 
 flags.DEFINE_string('environment', '', 'The OpenAI environment to load.')
 flags.DEFINE_integer('render_every', 0, 'Render every x iterations.')
@@ -45,7 +45,7 @@ def main(_):
   # Environment-specific setup.
   env = gym.make(FLAGS.environment)
   agent = QLearner(env, FLAGS.discount_factor)
-  binner = StateBinner.get_binner(FLAGS.environment, env)
+  binner = BinnerFactory.get_binner(FLAGS.environment, env)
 
   for episode in xrange(FLAGS.max_episodes):
     observation = env.reset()
