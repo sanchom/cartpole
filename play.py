@@ -15,6 +15,7 @@ import gym
 from gym import wrappers
 
 from q_learner import QLearner
+from deep_q_learner import DeepQLearner
 from states import BinnerFactory
 
 flags.DEFINE_string('environment', '', 'The OpenAI environment to load.')
@@ -26,6 +27,7 @@ flags.DEFINE_float('min_learning_rate', 0.1, 'The smallest that learning rate wi
 flags.DEFINE_float('starting_learning_rate', 0.5, 'The initial learning rate.')
 flags.DEFINE_float('min_exploration_rate', 0.01, 'The smallest that exploration rate will decay to.')
 flags.DEFINE_float('starting_exploration_rate', 0.2, 'The initial exploration rate.')
+flags.DEFINE_string('agent', 'q-learner', 'One of [\'q-learner\', \'deep-q-learner\'].')
 
 def render(env, iteration):
   if FLAGS.render_every and iteration % FLAGS.render_every == 0:
@@ -41,11 +43,19 @@ def get_explore_rate(episode):
   return max(FLAGS.min_exploration_rate,
              min(FLAGS.starting_exploration_rate, 1.0 - math.log10((episode + 1) / 25)))
 
+def get_agent(environment):
+  if FLAGS.agent == 'q-learner':
+    return QLearner(env, FLAGS.discount_factor)
+  elif FLAGS.agent == 'deep-q-learner':
+    return DeepQLearner(env, FLAGS.discount_factor)
+  else:
+    raise ValueError('Unknown agent: {}'.format(FLAGS.agent))
+
 def main(_):
   # Environment-specific setup.
   env = gym.make(FLAGS.environment)
-  agent = QLearner(env, FLAGS.discount_factor)
   binner = BinnerFactory.get_binner(FLAGS.environment, env)
+  agent = get_agent(env)
 
   for episode in xrange(FLAGS.max_episodes):
     observation = env.reset()
