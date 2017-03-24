@@ -45,9 +45,9 @@ def get_explore_rate(episode):
 
 def get_agent(environment):
   if FLAGS.agent == 'q-learner':
-    return QLearner(env, FLAGS.discount_factor)
+    return QLearner(environment, FLAGS.discount_factor)
   elif FLAGS.agent == 'deep-q-learner':
-    return DeepQLearner(env, FLAGS.discount_factor)
+    return DeepQLearner(environment, FLAGS.discount_factor)
   else:
     raise ValueError('Unknown agent: {}'.format(FLAGS.agent))
 
@@ -57,24 +57,30 @@ def main(_):
   binner = BinnerFactory.get_binner(FLAGS.environment, env)
   agent = get_agent(env)
 
-  for episode in xrange(FLAGS.max_episodes):
-    observation = env.reset()
-    state = binner.discretize(observation)
-    learning_rate = get_learning_rate(episode)
-    explore_rate = get_explore_rate(episode)
-    render(env, episode)
-    cumulative_reward = 0
-    for i in xrange(FLAGS.max_steps):
-      action = agent.get_action(state, explore_rate)
-      observation, reward, done, _ = env.step(action)
-      cumulative_reward += reward
-      new_state = binner.discretize(observation)
-      agent.learn(state, action, reward, new_state, learning_rate)
-      state = new_state
+
+  with tf.train.MonitoredTrainingSession(
+      checkpoint_dir="/tmp/deep_q_learner"
+  ) as session:
+    for episode in xrange(FLAGS.max_episodes):
+      observation = env.reset()
+      # state = binner.discretize(observation)
+      state = observation
+      learning_rate = get_learning_rate(episode)
+      explore_rate = get_explore_rate(episode)
       render(env, episode)
-      if done:
-        print('Episode {} finished after {} steps. Reward = {}'.format(episode + 1, i + 1, cumulative_reward))
-        break
+      cumulative_reward = 0
+      for i in xrange(FLAGS.max_steps):
+        action = agent.get_action(state, explore_rate, session)
+        observation, reward, done, _ = env.step(action)
+        cumulative_reward += reward
+        # new_state = binner.discretize(observation)
+        new_state = observation
+        agent.learn(state, action, reward, new_state, learning_rate, session)
+        state = new_state
+        render(env, episode)
+        if done:
+          print('Episode {} finished after {} steps. Reward = {}'.format(episode + 1, i + 1, cumulative_reward))
+          break
 
 if __name__ == '__main__':
   tf.app.run()
